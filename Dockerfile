@@ -28,4 +28,4 @@ RUN git clone --depth=1 https://github.com/Bash-it/bash-it.git ~/.bash_it \
 
 COPY socat_server.sh ./
 ENTRYPOINT ["/bin/bash", "socat_server.sh"]
-CMD ["80"]
+CMD ["start"]

@@ -1,7 +1,9 @@
 #!/bin/bash
 
-port=${1}
+PORT=80
 
+web() {
+local port="${PORT}"
 socat \
     -v -d -d \
     TCP-LISTEN:${port},crlf,reuseaddr,fork \
@@ -14,3 +16,13 @@ socat \
         echo \"Server: \$SOCAT_SOCKADDR:\$SOCAT_SOCKPORT\";
         echo \"Client: \$SOCAT_PEERADDR:\$SOCAT_PEERPORT\";
     "
+}
+
+case ${1} in
+  start)
+    web
+    ;;
+  *)
+    exec "$@"
+    ;;
+esac
