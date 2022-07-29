@@ -10,6 +10,7 @@ socat \
         echo Content-Type\: text/plain; 
         echo; 
         echo \"Date: \$(date)\";
+        echo \"HostName: \$(uname -n)\";
         echo \"Server: \$SOCAT_SOCKADDR:\$SOCAT_SOCKPORT\";
         echo \"Client: \$SOCAT_PEERADDR:\$SOCAT_PEERPORT\";
     "
