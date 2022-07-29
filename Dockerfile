@@ -3,6 +3,7 @@ FROM ubuntu:20.04
 RUN apt update \
 && DEBIAN_FRONTEND="noninteractive" apt install --no-install-recommends \
 curl \
+ca-certificates \
 default-mysql-client \
 dnsutils \
 git \
