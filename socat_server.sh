@@ -2,6 +2,14 @@
 
 PORT=80
 
+cleanup() {
+    echo "Cleaning up..."
+    exit
+}
+
+trap cleanup INT TERM
+
+
 web() {
 local port="${PORT}"
 socat \
