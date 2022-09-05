@@ -2,6 +2,7 @@ FROM ubuntu:20.04
 
 RUN apt update \
 && DEBIAN_FRONTEND="noninteractive" apt install --no-install-recommends \
+awscli \
 curl \
 ca-certificates \
 default-mysql-client \
