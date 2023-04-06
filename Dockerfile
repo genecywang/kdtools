@@ -14,6 +14,7 @@ iproute2 \
 iputils-ping \
 jq \
 lsof \
+locales \
 net-tools \
 netcat \
 postgresql-client \
