@@ -4,6 +4,8 @@ PORT=80
 
 cleanup() {
     echo "Cleaning up..."
+    kill -TERM "$child_pid"
+    wait "$child_pid"
     exit
 }
 
