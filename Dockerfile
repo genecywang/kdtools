@@ -25,6 +25,8 @@ vim \
 wget -y \
 && apt clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+RUN localedef -c -f UTF-8 -i en_US en_US.UTF-8
+
 RUN git clone --depth=1 https://github.com/Bash-it/bash-it.git ~/.bash_it \
 && bash ~/.bash_it/install.sh -s
 
