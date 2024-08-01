@@ -1,8 +1,7 @@
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 
 RUN apt update \
 && DEBIAN_FRONTEND="noninteractive" apt install --no-install-recommends \
-awscli \
 curl \
 ca-certificates \
 default-mysql-client \
@@ -16,14 +15,21 @@ jq \
 lsof \
 locales \
 net-tools \
-netcat \
+netcat-traditional \
 postgresql-client \
+openssh-client \
+python3 \
+python3-pip \
 socat \
+tmux \
 tcpdump \
-telnet \
+unzip \
 vim \
 wget -y \
 && apt clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
+&& unzip awscliv2.zip && ./aws/install && rm -rf aws awscliv2.zip
 
 RUN localedef -c -f UTF-8 -i en_US en_US.UTF-8
 
