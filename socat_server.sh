@@ -95,77 +95,73 @@ EOF
 }
 
 web() {
+  local handler
+  handler=$(mktemp /tmp/kdtools-handler.XXXXXX.sh)
+
+  cat > "$handler" << 'HANDLER_EOF'
+#!/usr/bin/env bash
+# Read the first HTTP request line, e.g.: GET /path HTTP/1.1
+read -r REQUEST_LINE || exit 0
+REQUEST_PATH=$(echo "$REQUEST_LINE" | awk '{print $2}')
+
+case "$REQUEST_PATH" in
+  /help)
+    BODY="$(help_text)"
+    ;;
+  /cpu)
+    burn_cpu 5
+    BODY="CPU burn 5s"
+    ;;
+  /cpu/*)
+    SECS=$(echo "$REQUEST_PATH" | cut -d/ -f3)
+    burn_cpu "${SECS:-5}"
+    BODY="CPU burn ${SECS:-5}s"
+    ;;
+  /cpulock)
+    cpu_lock 10
+    BODY="CPU lock (serialized) + burn 10s"
+    ;;
+  /cpulock/*)
+    SECS=$(echo "$REQUEST_PATH" | cut -d/ -f3)
+    cpu_lock "${SECS:-10}"
+    BODY="CPU lock (serialized) + burn ${SECS:-10}s"
+    ;;
+  /mem)
+    mem_alloc_mb 200
+    BODY="MEM alloc 200MB (/dev/shm)"
+    ;;
+  /mem/*)
+    MB=$(echo "$REQUEST_PATH" | cut -d/ -f3)
+    mem_alloc_mb "${MB:-200}"
+    BODY="MEM alloc ${MB:-200}MB (/dev/shm)"
+    ;;
+  /memfree)
+    mem_free
+    BODY="MEM freed (/dev/shm/load removed)"
+    ;;
+  *)
+    BODY="OK"
+    ;;
+esac
+
+echo "HTTP/1.1 200 OK"
+echo "Content-Type: text/plain"
+echo
+echo "Path: $REQUEST_PATH"
+echo "Date: $(date)"
+echo "HostName: $(uname -n)"
+echo "Server: $SOCAT_SOCKADDR:$SOCAT_SOCKPORT"
+echo "Client: $SOCAT_PEERADDR:$SOCAT_PEERPORT"
+echo
+echo "$BODY"
+HANDLER_EOF
+
   socat -v -d -d \
     TCP-LISTEN:${PORT},reuseaddr,fork \
-    SYSTEM:'
-      # Read the first HTTP request line, e.g.:
-      # "GET /path HTTP/1.1"
-      read -r REQUEST_LINE || exit 0
-      REQUEST_PATH=$(echo "$REQUEST_LINE" | awk "{print \$2}")
-
-      # Route requests by path
-      case "$REQUEST_PATH" in
-        /help)
-          BODY="$(help_text)"
-          ;;
-
-        /cpu)
-          burn_cpu 5
-          BODY="CPU burn 5s"
-          ;;
-
-        /cpu/*)
-          SECS=$(echo "$REQUEST_PATH" | cut -d/ -f3)
-          burn_cpu "${SECS:-5}"
-          BODY="CPU burn ${SECS:-5}s"
-          ;;
-
-        /cpulock)
-          cpu_lock 10
-          BODY="CPU lock (serialized) + burn 10s"
-          ;;
-
-        /cpulock/*)
-          SECS=$(echo "$REQUEST_PATH" | cut -d/ -f3)
-          cpu_lock "${SECS:-10}"
-          BODY="CPU lock (serialized) + burn ${SECS:-10}s"
-          ;;
-
-        /mem)
-          mem_alloc_mb 200
-          BODY="MEM alloc 200MB (/dev/shm)"
-          ;;
-
-        /mem/*)
-          MB=$(echo "$REQUEST_PATH" | cut -d/ -f3)
-          mem_alloc_mb "${MB:-200}"
-          BODY="MEM alloc ${MB:-200}MB (/dev/shm)"
-          ;;
-
-        /memfree)
-          mem_free
-          BODY="MEM freed (/dev/shm/load removed)"
-          ;;
-
-        *)
-          BODY="OK"
-          ;;
-      esac
-
-      # HTTP response
-      echo "HTTP/1.1 200 OK"
-      echo "Content-Type: text/plain"
-      echo
-      echo "Path: $REQUEST_PATH"
-      echo "Date: $(date)"
-      echo "HostName: $(uname -n)"
-      echo "Server: $SOCAT_SOCKADDR:$SOCAT_SOCKPORT"
-      echo "Client: $SOCAT_PEERADDR:$SOCAT_PEERPORT"
-      echo
-      echo "$BODY"
-    ' &
+    SYSTEM:"bash $handler" &
   SOCAT_PID=$!
   wait "${SOCAT_PID}"
+  rm -f "$handler"
 }
 
 case "${1:-start}" in
