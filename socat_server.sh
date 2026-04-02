@@ -37,22 +37,34 @@ cpu_lock() {
   exec {lockfd}>&-
 }
 
-# Allocate memory by writing files into /dev/shm (tmpfs, memory-backed).
-# This increases memory usage and is useful for testing memory pressure / OOM.
+# Allocate anonymous memory via a background Python process.
+# Anonymous memory is counted as working_set by cgroups, so it is visible
+# to metrics-server and triggers HPA scaling.
 mem_alloc_mb() {
   local mb="${1:-200}"
-  mkdir -p /dev/shm/load
-
-  # Use peer port + PID to avoid filename collisions
-  local f="/dev/shm/load/${SOCAT_PEERPORT:-unknown}-${$}-${mb}mb.bin"
-
-  # Write <mb> MB to /dev/shm to consume memory
-  dd if=/dev/zero of="$f" bs=1M count="$mb" status=none
+  local bytes=$(( mb * 1024 * 1024 ))
+  mkdir -p /tmp/memhold
+  python3 -c "
+import os, signal
+buf = bytearray($bytes)
+for i in range(0, $bytes, 4096):
+    buf[i] = 1
+open(f'/tmp/memhold/{os.getpid()}.pid', 'w').close()
+signal.pause()
+" &
 }
 
-# Free all allocated memory files under /dev/shm/load
+# Kill all background memory-holding processes
 mem_free() {
-  rm -rf /dev/shm/load 2>/dev/null || true
+  if [ -d /tmp/memhold ]; then
+    for pidfile in /tmp/memhold/*.pid; do
+      [ -f "$pidfile" ] || continue
+      pid="${pidfile%.pid}"
+      pid="${pid##*/}"
+      kill "$pid" 2>/dev/null || true
+    done
+    rm -rf /tmp/memhold
+  fi
 }
 
 # Help text displayed at /help
