@@ -19,8 +19,12 @@ trap cleanup INT TERM
 # Each request consumes ~100% of one CPU core.
 burn_cpu() {
   local seconds="${1:-5}"
-  local end=$(( $(date +%s) + seconds ))
-  while [ "$(date +%s)" -lt "$end" ]; do :; done
+  python3 -c "
+import time
+end = time.time() + $seconds
+while time.time() < end:
+    pass
+"
 }
 
 # Simulate CPU blocking via global lock contention.
@@ -46,12 +50,14 @@ mem_alloc_mb() {
   mkdir -p /tmp/memhold
   python3 -c "
 import os, signal
+signal.signal(signal.SIGHUP, signal.SIG_IGN)
 buf = bytearray($bytes)
 for i in range(0, $bytes, 4096):
     buf[i] = 1
 open(f'/tmp/memhold/{os.getpid()}.pid', 'w').close()
 signal.pause()
 " &
+  disown
 }
 
 # Kill all background memory-holding processes
