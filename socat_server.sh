@@ -28,11 +28,13 @@ burn_cpu() {
 cpu_lock() {
   local seconds="${1:-10}"
   mkdir -p /tmp/locks
-  exec 9>/tmp/locks/global.lock
-  flock 9
+  local lockfd
+  exec {lockfd}>/tmp/locks/global.lock
+  flock "$lockfd"
   # Hold the lock while burning CPU to simulate blocking + CPU pressure
   burn_cpu "$seconds"
-  flock -u 9
+  flock -u "$lockfd"
+  exec {lockfd}>&-
 }
 
 # Allocate memory by writing files into /dev/shm (tmpfs, memory-backed).
@@ -104,6 +106,12 @@ web() {
 read -r REQUEST_LINE || exit 0
 REQUEST_PATH=$(echo "$REQUEST_LINE" | awk '{print $2}')
 
+# Consume remaining HTTP headers until blank line
+while IFS= read -r header; do
+  header="${header%%$'\r'}"
+  [ -z "$header" ] && break
+done
+
 case "$REQUEST_PATH" in
   /help)
     BODY="$(help_text)"
@@ -114,8 +122,9 @@ case "$REQUEST_PATH" in
     ;;
   /cpu/*)
     SECS=$(echo "$REQUEST_PATH" | cut -d/ -f3)
-    burn_cpu "${SECS:-5}"
-    BODY="CPU burn ${SECS:-5}s"
+    [[ "$SECS" =~ ^[0-9]+$ ]] || SECS=5
+    burn_cpu "$SECS"
+    BODY="CPU burn ${SECS}s"
     ;;
   /cpulock)
     cpu_lock 10
@@ -123,8 +132,9 @@ case "$REQUEST_PATH" in
     ;;
   /cpulock/*)
     SECS=$(echo "$REQUEST_PATH" | cut -d/ -f3)
-    cpu_lock "${SECS:-10}"
-    BODY="CPU lock (serialized) + burn ${SECS:-10}s"
+    [[ "$SECS" =~ ^[0-9]+$ ]] || SECS=10
+    cpu_lock "$SECS"
+    BODY="CPU lock (serialized) + burn ${SECS}s"
     ;;
   /mem)
     mem_alloc_mb 200
@@ -132,8 +142,9 @@ case "$REQUEST_PATH" in
     ;;
   /mem/*)
     MB=$(echo "$REQUEST_PATH" | cut -d/ -f3)
-    mem_alloc_mb "${MB:-200}"
-    BODY="MEM alloc ${MB:-200}MB (/dev/shm)"
+    [[ "$MB" =~ ^[0-9]+$ ]] || MB=200
+    mem_alloc_mb "$MB"
+    BODY="MEM alloc ${MB}MB (/dev/shm)"
     ;;
   /memfree)
     mem_free
