@@ -82,6 +82,10 @@ Notes:
 """
 
 
+# IPv4, IPv6, and IPv4-mapped IPv6 loopback addresses
+LOCALHOST = {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
+
+
 def _to_int(s: str, default: int) -> int:
     try:
         return int(s)
@@ -93,6 +97,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split("?")[0]
         parts = [p for p in path.split("/") if p]
+
+        if path != "/" and self.client_address[0] not in LOCALHOST:
+            self._send_forbidden()
+            return
 
         match parts:
             case ["help"] | [] if path in ("/help", "/"):
@@ -144,6 +152,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(content)))
         self.end_headers()
         self.wfile.write(content)
+
+    def _send_forbidden(self) -> None:
+        self.send_response(403)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Content-Length", "14")
+        self.end_headers()
+        self.wfile.write(b"403 Forbidden\n")
 
     def log_message(self, fmt, *args):
         print(f"{self.address_string()} - {fmt % args}", flush=True)
