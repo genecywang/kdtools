@@ -1,5 +1,5 @@
 IMAGE   := genewang/kdtools
-VERSION := 1.2.1
+VERSION := 1.2.2
 
 PLATFORMS := linux/amd64,linux/arm64
 BUILDER   := desktop-linux

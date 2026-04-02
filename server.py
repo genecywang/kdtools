@@ -160,6 +160,11 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"403 Forbidden\n")
 
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+
     def log_message(self, fmt, *args):
         print(f"{self.address_string()} - {fmt % args}", flush=True)
 
