@@ -4,44 +4,49 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-kdtools is a Kubernetes network debug tool — a Docker container that runs an HTTP server (`socat_server.sh`) to simulate CPU, memory, and lock contention loads. It's used for Kubernetes resource testing and network debugging.
+kdtools is a Kubernetes load simulation tool — a Docker container running a Python HTTP server (`server.py`) used to trigger CPU, memory, and lock contention pressure for testing Kubernetes HPA and network debugging.
 
 ## Build & Run
 
 ```bash
-# Build the Docker image
-docker build -t kdtools .
+# Build and push multi-arch image (linux/amd64 + linux/arm64)
+make push
 
-# Run the container (default port 80)
+# Build locally without push
+make build
+
+# Run locally
 docker run -p 8080:80 kdtools
 
-# Run with a custom port
+# Custom port
 docker run -e PORT=8888 -p 8888:8888 kdtools
 
-# Debug: run a shell instead of the server
+# Debug shell
 docker run -it kdtools bash
 ```
 
-There are no test suites or linting configurations. Manual testing is done by hitting the HTTP endpoints after starting the container.
+Version is managed in `Makefile` (`VERSION := x.y.z`). There are no test suites or linting configurations — manual testing is done by hitting HTTP endpoints after starting the container.
 
 ## Architecture
 
-The entire application is `socat_server.sh`. It uses `socat` to implement a raw HTTP/1.1 server that routes requests to load-simulation functions:
+The entire application is `server.py` (~130 lines). It uses `http.server.ThreadingHTTPServer` (stdlib) with a single `Handler` class.
 
-| Endpoint | Function | Default |
-|----------|----------|---------|
-| `/cpu[/<sec>]` | Busy-loop CPU burn | 5s |
-| `/cpulock[/<sec>]` | Serialized CPU burn via file lock (`/tmp/locks/global.lock`) | 10s |
-| `/mem[/<mb>]` | Allocate memory in `/dev/shm/load/` | 200MB |
-| `/memfree` | Free all files under `/dev/shm/load/` | — |
-| `/help` | List endpoints | — |
-
-**Signal handling**: The server traps `SIGTERM`/`SIGINT` to kill the socat child process and exit cleanly — important for Kubernetes pod lifecycle.
-
-**Memory note**: `/dev/shm` is a tmpfs limited to 64MB by default in containers. To test larger allocations, mount a Kubernetes `emptyDir` volume at `/dev/shm`.
+| Endpoint | Behaviour | Default |
+|----------|-----------|---------|
+| `/cpu[/<sec>]` | Spawns a subprocess to busy-loop one full CPU core | 5s |
+| `/cpulock[/<sec>]` | Same, but serialized via a `threading.Lock` | 10s |
+| `/mem[/<mb>]` | Spawns a persistent background process holding anonymous memory | 200MB |
+| `/memfree` | Terminates all memory-holding processes | — |
+| `/help` | Lists endpoints | — |
 
 ## Key Implementation Details
 
-- The server forks a socat process per request; the main loop manages the PID for cleanup.
-- CPU lock contention is implemented using `flock` on `/tmp/locks/global.lock`, serializing concurrent `/cpulock` requests.
-- Response headers include path, timestamp, hostname, and socket info — useful for debugging routing and load balancing in Kubernetes.
+**CPU burn** uses `multiprocessing.Process` (not threads) to bypass Python's GIL — each concurrent `/cpu` request saturates one full core. The handler blocks with `p.join()` until the burn completes.
+
+**Memory allocation** spawns a `daemon=False` background process that allocates a `bytearray` and touches every page to ensure physical allocation. This produces anonymous memory counted as `working_set` by cgroups, making it visible to metrics-server and HPA. The process persists until `/memfree` or server shutdown. `/dev/shm`-based (tmpfs) allocation is intentionally avoided as it lands in `inactive_file` and is excluded from `working_set`.
+
+**`/cpulock`** serializes concurrent requests via a module-level `threading.Lock`, simulating lock contention / serialized resource access — distinct from `/cpu` which runs requests fully in parallel.
+
+**Signal handling**: `SIGTERM`/`SIGINT` call `mem_free()` to terminate all background memory processes before shutting down the HTTP server — important for clean Kubernetes pod termination.
+
+**`multiprocessing.set_start_method("fork")`** is set at startup so child processes inherit the parent's memory state without re-importing modules.
