@@ -39,6 +39,5 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
 
 RUN localedef -c -f UTF-8 -i en_US en_US.UTF-8
 
-COPY socat_server.sh ./
-ENTRYPOINT ["/bin/bash", "socat_server.sh"]
-CMD ["start"]
+COPY server.py ./
+ENTRYPOINT ["python3", "server.py"]
