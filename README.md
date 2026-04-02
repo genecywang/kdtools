@@ -29,9 +29,9 @@ docker run -it kdtools bash
 | `GET /cpu/<sec>` | 燒 CPU 指定秒數 | — |
 | `GET /cpulock` | 搶全局鎖後燒 CPU，所有同時請求會序列化執行 | 10s |
 | `GET /cpulock/<sec>` | 同上，指定秒數 | — |
-| `GET /mem` | 在 `/dev/shm` 分配 200MB 記憶體 | 200MB |
+| `GET /mem` | 分配 200MB anonymous memory | 200MB |
 | `GET /mem/<mb>` | 分配指定 MB | — |
-| `GET /memfree` | 釋放 `/dev/shm/load` 下所有已分配記憶體 | — |
+| `GET /memfree` | 釋放所有已分配的記憶體 | — |
 
 ### 範例
 
@@ -52,22 +52,11 @@ curl http://localhost:8080/cpulock/5 &
 
 ## 注意事項
 
-**記憶體測試**：容器內 `/dev/shm`（tmpfs）預設上限為 64MB。需要測試更大的記憶體分配時，請在 Kubernetes 掛載 `emptyDir`：
-
-```yaml
-volumes:
-  - name: dshm
-    emptyDir:
-      medium: Memory
-      sizeLimit: 2Gi
-volumeMounts:
-  - name: dshm
-    mountPath: /dev/shm
-```
-
 **CPU 測試**：`/cpu` 每個請求消耗約一個 core。要製造多核壓力，需同時發送多個並發請求。
 
-**Lock contention**：`/cpulock` 使用 `/tmp/locks/global.lock` 作為全局鎖，所有並發請求會被序列化，可模擬資源競爭情境。
+**記憶體測試**：`/mem` 使用 anonymous memory，直接計入 cgroup `working_set`，可被 metrics-server 偵測並觸發 HPA memory scaling。記憶體會持續佔用直到呼叫 `/memfree` 或容器重啟。
+
+**Lock contention**：`/cpulock` 使用 process-level 全局鎖，所有並發請求會被序列化，可模擬資源競爭情境。
 
 ## 預裝工具
 

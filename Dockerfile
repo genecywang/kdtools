@@ -20,7 +20,6 @@ postgresql-client \
 openssh-client \
 python3 \
 python3-pip \
-socat \
 tmux \
 tcpdump \
 unzip \
