@@ -50,3 +50,5 @@ The entire application is `server.py` (~130 lines). It uses `http.server.Threadi
 **Signal handling**: `SIGTERM`/`SIGINT` call `mem_free()` to terminate all background memory processes before shutting down the HTTP server — important for clean Kubernetes pod termination.
 
 **`multiprocessing.set_start_method("fork")`** is set at startup so child processes inherit the parent's memory state without re-importing modules.
+
+**Access control**: `/` is open to all sources. Every other endpoint requires the client to be localhost (`127.0.0.1`, `::1`, or `::ffff:127.0.0.1`) — non-localhost requests receive `403 Forbidden`.
