@@ -27,6 +27,13 @@ docker run -it kdtools bash
 
 Version is managed in `Makefile` (`VERSION := x.y.z`). There are no test suites or linting configurations — manual testing is done by hitting HTTP endpoints after starting the container.
 
+The Makefile auto-detects the buildx builder: uses `desktop-linux` (Docker Desktop) if available, otherwise falls back to `default`. On Linux without Docker Desktop, if `default` doesn't support multi-arch, create one first and pass it explicitly:
+
+```bash
+docker buildx create --name multiarch --driver docker-container --use
+BUILDER=multiarch make push
+```
+
 ## Architecture
 
 The entire application is `server.py` (~130 lines). It uses `http.server.ThreadingHTTPServer` (stdlib) with a single `Handler` class.

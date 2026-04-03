@@ -1,8 +1,8 @@
 IMAGE   := genewang/kdtools
-VERSION := 1.2.2
+VERSION := 1.2.3
 
 PLATFORMS := linux/amd64,linux/arm64
-BUILDER   := desktop-linux
+BUILDER   ?= $(shell docker buildx ls 2>/dev/null | grep -q '^desktop-linux' && echo desktop-linux || echo default)
 
 .PHONY: build push
 

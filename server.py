@@ -153,14 +153,21 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(content)
 
-    def _send_forbidden(self) -> None:
+    def _send_forbidden(self, body: bool = True) -> None:
         self.send_response(403)
         self.send_header("Content-Type", "text/plain")
         self.send_header("Content-Length", "14")
         self.end_headers()
-        self.wfile.write(b"403 Forbidden\n")
+        if body:
+            self.wfile.write(b"403 Forbidden\n")
 
     def do_HEAD(self):
+        path = self.path.split("?")[0]
+
+        if path != "/" and self.client_address[0] not in LOCALHOST:
+            self._send_forbidden(body=False)
+            return
+
         self.send_response(200)
         self.send_header("Content-Type", "text/plain")
         self.end_headers()
